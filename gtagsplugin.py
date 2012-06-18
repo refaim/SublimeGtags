@@ -40,6 +40,10 @@ def run_on_cwd(dir=None):
     return wrapper
 
 
+def selected_symbol(view):
+    return view.substr(view.word(view.sel()[0]))
+
+
 class ThreadProgress(object):
     def __init__(self, thread, message, success_message, error_message):
         self.thread = thread
@@ -169,7 +173,7 @@ class GtagsNavigateToDefinition(sublime_plugin.TextCommand):
     def run(self, edit):
         @run_on_cwd()
         def and_then(view, tags, root):
-            symbol = view.substr(view.word(view.sel()[0]))
+            symbol = selected_symbol(view)
             matches = tags.match(symbol)
             if not matches:
                 status_message("'%s' is not found on tag." % symbol)
@@ -181,7 +185,7 @@ class GtagsFindReferences(sublime_plugin.TextCommand):
     def run(self, edit):
         @run_on_cwd()
         def and_then(view, tags, root):
-            symbol = view.substr(view.word(view.sel()[0]))
+            symbol = selected_symbol(view)
             matches = tags.match(symbol, reference=True)
             if not matches:
                 status_message("'%s' is not found on rtag." % symbol)
