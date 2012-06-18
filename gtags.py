@@ -12,10 +12,12 @@ import unittest
 PP = pprint.PrettyPrinter(indent=4)
 
 TAGS_RE = re.compile(
+    '^'
     '(?P<symbol>[^\s]+)\s+'
     '(?P<linenum>[^\s]+)\s+'
     '(?P<path>[^\s]+)\s+'
     '(?P<signature>.*)'
+    '$'
 )
 
 ENV_PATH = os.environ['PATH']
@@ -87,12 +89,8 @@ class TagFile(object):
         return self.subprocess.stdout('global -c %s' % prefix).splitlines()
 
     def _match(self, pattern, options):
-        lines = self.subprocess.stdout(
-            'global %s %s' % (options, pattern)).splitlines()
-        matches = []
-        for search_obj in (t for t in (TAGS_RE.search(l) for l in lines) if t):
-            matches.append(search_obj.groupdict())
-        return matches
+        output = self.subprocess.stdout('global %s %s' % (options, pattern))
+        return [match.groupdict() for match in TAGS_RE.finditer(output)]
 
     def match(self, pattern, reference=False):
         return self._match(pattern, '-ax' + ('r' if reference else ''))
