@@ -64,6 +64,12 @@ class TagSubprocess(object):
         _, stderr = process.communicate()
         return retcode, stderr
 
+    def status(self, command, silent=False, **kwargs):
+        retcode, stderr = self.call(command, **kwargs)
+        success = retcode == 0
+        if not (silent or success):
+            print stderr
+        return success
 
 class TagFile(object):
     def _expand_path(self, path):
@@ -96,11 +102,7 @@ class TagFile(object):
         return self._match(pattern, '-ax' + ('r' if reference else ''))
 
     def rebuild(self):
-        retcode, stderr = self.subprocess.call('gtags -v', cwd=self.__root)
-        success = retcode == 0
-        if not success:
-            print stderr
-        return success
+        return self.subprocess.status('gtags -v', cwd=self.root)
 
 
 class GTagsTest(unittest.TestCase):
