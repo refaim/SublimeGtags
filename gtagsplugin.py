@@ -175,11 +175,11 @@ class GtagsNavigateToDefinition(sublime_plugin.TextCommand):
         def and_then(view, tags, root):
             symbol = selected_symbol(view)
             matches = tags.match(symbol)
-            if not matches:
-                status_message("'%s' is not found on tag." % symbol)
-                return
+            if matches:
+                gtags_jump_keyword(view, matches, root)
+            else:
+                sublime.status_message('The symbol "%s" was not found' % symbol)
 
-            gtags_jump_keyword(view, matches, root)
 
 class GtagsFindReferences(sublime_plugin.TextCommand):
     def run(self, edit):
@@ -187,11 +187,10 @@ class GtagsFindReferences(sublime_plugin.TextCommand):
         def and_then(view, tags, root):
             symbol = selected_symbol(view)
             matches = tags.match(symbol, reference=True)
-            if not matches:
-                status_message("'%s' is not found on rtag." % symbol)
-                return
-
-            gtags_jump_keyword(view, matches, root)
+            if matches:
+                gtags_jump_keyword(view, matches, root)
+            else:
+                sublime.status_message('References to "%s" were not found' % symbol)
 
 
 class TagsRebuildThread(threading.Thread):
