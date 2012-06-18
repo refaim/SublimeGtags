@@ -20,8 +20,16 @@ TAGS_RE = re.compile(
     '$'
 )
 
-ENV_PATH = os.environ['PATH']
-IS_WINDOWS = platform.system() == 'Windows'
+
+def is_windows():
+    return platform.system() == 'Windows'
+
+
+def expand_path(path):
+    path = os.path.expandvars(os.path.expanduser(path))
+    if is_windows():
+        path = path.encode('utf-8')
+    return path
 
 
 def find_tags_root(current, previous=None):
@@ -40,9 +48,15 @@ def find_tags_root(current, previous=None):
 
 
 class TagSubprocess(object):
-    def __init__(self, **kwargs):
-        self.default_kwargs = kwargs
-        if IS_WINDOWS:
+    def __init__(self, root, extra_paths):
+        environ = {
+            'PATH': os.environ['PATH'],
+            'GTAGSROOT': expand_path(root),
+            'GTAGSLIBPATH':
+                os.pathsep.join(expand_path(path) for path in extra_paths),
+        }
+        self.default_kwargs = { 'env': environ }
+        if is_windows():
             self.default_kwargs['shell'] = True
 
     def create(self, command, **kwargs):
@@ -71,25 +85,11 @@ class TagSubprocess(object):
             print stderr
         return success
 
+
 class TagFile(object):
-    def _expand_path(self, path):
-        path = os.path.expandvars(os.path.expanduser(path))
-        if IS_WINDOWS:
-            path = path.encode('utf-8')
-        return path
-
-    def __init__(self, root_dir=None, extra_paths=[]):
-        self.__env = {'PATH': ENV_PATH}
-        self.__root = root_dir
-
-        if root_dir is not None:
-            self.__env['GTAGSROOT'] = self._expand_path(root_dir)
-
-        if extra_paths:
-            self.__env['GTAGSLIBPATH'] = os.pathsep.join(
-                map(self._expand_path, extra_paths))
-
-        self.subprocess = TagSubprocess(env=self.__env)
+    def __init__(self, root, extra_paths=[]):
+        self.root = root
+        self.subprocess = TagSubprocess(root, extra_paths)
 
     def start_with(self, prefix):
         return self.subprocess.stdout('global -c %s' % prefix).splitlines()
