@@ -17,7 +17,7 @@ TAGS_RE = re.compile(
     '(?P<linenum>[^\s]+)\s+'
     '(?P<path>[^\s]+)\s+'
     '(?P<signature>.*)'
-    '$'
+    '$', re.MULTILINE
 )
 
 
