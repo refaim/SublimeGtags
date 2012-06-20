@@ -6,7 +6,9 @@ import platform
 import pprint
 import re
 import shlex
+import shutil
 import subprocess
+import tempfile
 import unittest
 
 PP = pprint.PrettyPrinter(indent=4)
@@ -105,36 +107,87 @@ class TagFile(object):
         return success
 
 
-class GTagsTest(unittest.TestCase):
-    def test_start_with(self):
-        f = TagFile('$HOME/repos/work/val/e4/proto1/')
-        assert len(f.start_with("Exp_Set")) == 4
+class GtagsTestCase(unittest.TestCase):
+    def __init__(self, method_name):
+        unittest.TestCase.__init__(self, method_name)
+        self.data_folder = os.path.join(os.path.dirname(__file__), 'testdata')
 
-    def test_match(pattern):
-        f = TagFile('$HOME/repos/work/val/e4/proto1/')
-        matches = f.match("ExpAddData")
-        assert len(matches) == 4
-        assert matches[0]["path"] == "/Users/tabi/Dropbox/repos/work/val/e4/proto1/include/ExpData.h"
-        assert matches[0]["linenum"] == '1463'
+    def copyData(self):
+        os.mkdir(self.main_source_folder)
+        os.mkdir(self.extra_source_folder)
+        for root, dirs, files in os.walk(self.data_folder):
+            for file_ in files:
+                shutil.copy(os.path.join(root, file_),
+                    os.path.join(self.test_folder, os.path.basename(root)))
 
-    def test_start_with2(self):
-        f = TagFile()
-        assert len(f.start_with("Exp_Set")) == 0
+    def setUp(self):
+        self.test_folder = tempfile.mkdtemp()
+        self.main_source_folder = os.path.join(self.test_folder, 'main')
+        self.extra_source_folder = os.path.join(self.test_folder, 'extra')
+        self.copyData()
 
-    def test_reference(self):
-        f = TagFile('$HOME/repos/work/val/e4/proto1/')
-        refs = f.match("Exp_IsSkipProgress", reference=True)
-        assert len(refs) == 22
-        assert refs[0]["path"] == "/Users/tabi/Dropbox/repos/work/val/e4/proto1/include/ExpPrivate.h"
-        assert refs[0]["linenum"] == '1270'
+    def tearDown(self):
+        if os.path.isdir(self.test_folder):
+            shutil.rmtree(self.test_folder, ignore_errors=True)
 
-    def test_extra_paths(self):
-        f = TagFile("$HOME/tmp/sample", ["$HOME/repos/work/val/e4/proto1/", "~/pkg/llvm-trunk/tools/clang/"])
-        matches = f.match("InitHeaderSearch")
-        assert len(matches) == 1
-        assert matches[0]["path"] == "/Users/tabi/pkg/llvm-trunk/tools/clang/lib/Frontend/InitHeaderSearch.cpp"
-        assert matches[0]["linenum"] == '44'
+    def assertSymbol(self, symbol, signature, line, path):
+        self.assertEquals(symbol['signature'], signature)
+        self.assertEquals(int(symbol['linenum']), line)
+        self.assertEquals(os.path.realpath(symbol['path']),
+            os.path.realpath(path))
 
+    def build_gtags(self, extra_paths=[]):
+        tags = TagFile(self.main_source_folder, extra_paths)
+        tags.rebuild()
+        return tags
+
+    def test_build(self):
+        required_files = ['GPATH', 'GRTAGS', 'GSYMS', 'GTAGS']
+        source_files = os.listdir(self.main_source_folder)
+        self.build_gtags()
+        all_files = os.listdir(self.main_source_folder)
+        gtags_files = set(all_files) - set(source_files)
+        self.assertEquals(sorted(gtags_files), required_files)
+        self.assertTrue(all(
+            os.path.getsize(os.path.join(self.main_source_folder, filename))
+            for filename in required_files))
+
+    def test_get_by_prefix(self):
+        tags = self.build_gtags()
+        self.assertEquals(len(tags.start_with('')), 32)
+        self.assertEquals(len(tags.start_with('LSQ')), 26)
+        self.assertEquals(len(tags.start_with('foobar')), 0)
+
+    def test_empty_match(self):
+        tags = self.build_gtags()
+        self.assertEquals(len(tags.match('whatever')), 0)
+
+    def test_match(self):
+        tags = self.build_gtags()
+        matches = tags.match('LSQ_HandleT')
+        self.assertEquals(len(matches), 1)
+        handle = matches[0]
+        self.assertSymbol(handle,
+            signature='typedef void* LSQ_HandleT;', line=11,
+            path=os.path.join(self.main_source_folder, 'linear_sequence.h'))
+
+    def test_references(self):
+        tags = self.build_gtags()
+        matches = tags.match('LSQ_IteratorT', reference=True)
+        self.assertEquals(len(matches), 6)
+        self.assertSymbol(matches[0],
+            signature=('LSQ_IteratorT LSQ_GetElementByIndex' +
+                '(LSQ_HandleT handle, LSQ_IntegerIndexT index) {'),
+            path=os.path.join(self.main_source_folder, 'doubly_linked_list.c'),
+            line=75)
 
 if __name__ == '__main__':
-    unittest.main()
+    tests = [
+        'test_build',
+        'test_get_by_prefix',
+        'test_empty_match',
+        'test_match',
+        'test_references',
+    ]
+    suite = unittest.TestSuite(map(GtagsTestCase, tests))
+    unittest.TextTestRunner(verbosity=2).run(suite)
