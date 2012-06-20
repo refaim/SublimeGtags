@@ -12,12 +12,11 @@ import unittest
 PP = pprint.PrettyPrinter(indent=4)
 
 TAGS_RE = re.compile(
-    '^'
-    '(?P<symbol>[^\s]+)\s+'
-    '(?P<linenum>[^\s]+)\s+'
-    '(?P<path>[^\s]+)\s+'
-    '(?P<signature>.*)'
-    '$', re.MULTILINE
+    r'^'
+    r'(?P<path>(\w:)?[^:]+):'
+    r'(?P<linenum>\d+):'
+    r'(?P<context>.+)'
+    r'$', re.MULTILINE
 )
 
 
@@ -25,10 +24,37 @@ def is_windows():
     return platform.system() == 'Windows'
 
 
+if is_windows():
+    import ctypes
+    import locale
+    from ctypes.wintypes import MAX_PATH
+
+    def convert_path(path, method):
+        src = ctypes.create_unicode_buffer(path)
+        dst = ctypes.create_unicode_buffer(MAX_PATH)
+        if method(src, dst, ctypes.sizeof(dst)) != 0:
+            return dst.value
+        else:
+            print 'Cannot convert path: "%s"' % (
+                ctypes.FormatError(ctypes.GetLastError()))
+            return None
+
+
 def expand_path(path):
     path = os.path.expandvars(os.path.expanduser(path))
+
     if is_windows():
-        path = path.encode('utf-8')
+        # subprocess.Popen from Python 2.7 on Windows fails if either
+        # the executable or any of the arguments contain unicode characters.
+        # See http://bugs.python.org/issue1759845 for details.
+
+        # So, if we aiming for an universal solution,
+        # we need to get ANSI 8.3 version of the path.
+        path = convert_path(path, ctypes.windll.kernel32.GetShortPathNameW)
+
+        # And finally encode for CMD.
+        path = path.encode(locale.getpreferredencoding())
+
     return path
 
 
@@ -55,7 +81,7 @@ class TagSubprocess(object):
             'GTAGSLIBPATH':
                 os.pathsep.join(expand_path(path) for path in extra_paths),
         }
-        self.default_kwargs = { 'env': environ }
+        self.default_kwargs = {'env': environ}
         if is_windows():
             self.default_kwargs['shell'] = True
 
@@ -96,10 +122,28 @@ class TagFile(object):
 
     def _match(self, pattern, options):
         output = self.subprocess.stdout('global %s %s' % (options, pattern))
-        return [match.groupdict() for match in TAGS_RE.finditer(output)]
+        result = []
+
+        for match in TAGS_RE.finditer(output):
+            if not is_windows():
+                result.append(match.groupdict())
+            else:
+                data = match.groupdict()
+
+                # Convert from CMD encoding.
+                path = data['path'].decode(locale.getpreferredencoding())
+
+                # Restore original unicode path.
+                data['path'] = convert_path(path,
+                    ctypes.windll.kernel32.GetLongPathNameW)
+
+                result.append(data)
+
+        return result
 
     def match(self, pattern, reference=False):
-        return self._match(pattern, '-ax' + ('r' if reference else ''))
+        return self._match(pattern, '--result grep -a' +
+            ('r' if reference else ''))
 
     def rebuild(self):
         return self.subprocess.status('gtags -v', cwd=self.root)

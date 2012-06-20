@@ -127,7 +127,8 @@ def gtags_jump_keyword(view, keywords, root, showpanel=False):
         else:
             convert_path = os.path.normpath
         data = [
-            [kw['signature'], '%s:%d' % (convert_path(kw['path']), int(kw['linenum']))]
+            [kw['context'].strip(),
+             '%s:%d' % (convert_path(kw['path']), int(kw['linenum']))]
              for kw in keywords
         ]
         view.window().show_quick_panel(data, on_select)
