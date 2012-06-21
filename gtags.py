@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import itertools
+import operator
 import os
 import platform
 import pprint
@@ -17,7 +19,7 @@ GLOBAL_VERSION_RE = re.compile(r'^global - GNU GLOBAL (?P<version>[\d\.]+)$')
 
 # See http://lists.gnu.org/archive/html/info-global/2010-06/msg00000.html
 # for details.
-GLOBAL_GSYMS_REMOVAL_VERSION = 5.9
+GLOBAL_GSYMS_REMOVAL_VERSION = '5.9'
 
 TAGS_RE = re.compile(
     '(?P<symbol>[^\s]+)\s+'
@@ -28,6 +30,24 @@ TAGS_RE = re.compile(
 
 ENV_PATH = os.environ['PATH']
 IS_WINDOWS = platform.system() == 'Windows'
+
+
+class GnuGlobalVersion(object):
+    def __init__(self, version_string):
+        self.numbers = [int(number) for number in version_string.split('.')]
+
+    def __cmp__(self, other):
+        if isinstance(other, basestring):
+            other = GnuGlobalVersion(other)
+
+        number_pairs = itertools.izip_longest(
+            self.numbers, other.numbers, fillvalue=0)
+        for a, b in number_pairs:
+            if a < b:
+                return -1
+            if a > b:
+                return 1
+        return 0
 
 
 def find_tags_root(current, previous=None):
@@ -112,15 +132,11 @@ class TagFile(object):
             print stderr
         return success
 
-    def version(self, asfloat=False):
+    def version(self):
         version_string = self.subprocess.stdout('global --version').splitlines()[0]
         match = GLOBAL_VERSION_RE.match(version_string)
         if match:
-            version = match.groupdict()['version']
-            if asfloat:
-                # two first digits
-                return float('.'.join(version.split('.')[:2]))
-            return version
+            return GnuGlobalVersion(match.groupdict()['version'])
         return None
 
 
@@ -132,7 +148,7 @@ class GtagsTestCase(unittest.TestCase):
     def copyData(self):
         os.mkdir(self.main_source_folder)
         os.mkdir(self.extra_source_folder)
-        for root, dirs, files in os.walk(self.data_folder):
+        for root, _, files in os.walk(self.data_folder):
             for file_ in files:
                 shutil.copy(os.path.join(root, file_),
                     os.path.join(self.test_folder, os.path.basename(root)))
@@ -153,39 +169,51 @@ class GtagsTestCase(unittest.TestCase):
         self.assertEquals(os.path.realpath(symbol['path']),
             os.path.realpath(path))
 
-    def build_gtags(self, extra_paths=[]):
+    def assertVersion(self, op, v1, v2):
+        self.assertTrue(op(GnuGlobalVersion(v1), GnuGlobalVersion(v2)))
+
+    def buildGtags(self, extra_paths=[]):
         tags = TagFile(self.main_source_folder, extra_paths)
         tags.rebuild()
         return tags
 
+    def test_version_comparison(self):
+        self.assertVersion(operator.eq, '6.2.3', '6.2.3')
+        self.assertVersion(operator.gt, '6.2.3', '5.2.2')
+        self.assertVersion(operator.lt, '6.2.3', '6.3')
+
     def test_build(self):
         source_files = os.listdir(self.main_source_folder)
 
-        tags = self.build_gtags()
+        tags = self.buildGtags()
         required_files = ['GPATH', 'GRTAGS', 'GSYMS', 'GTAGS']
-        if tags.version(asfloat=True) >= GLOBAL_GSYMS_REMOVAL_VERSION:
+        if tags.version() >= GLOBAL_GSYMS_REMOVAL_VERSION:
             required_files.remove('GSYMS')
 
         all_files = os.listdir(self.main_source_folder)
         gtags_files = set(all_files) - set(source_files)
 
-        self.assertEquals(sorted(gtags_files), sorted(required_files))
+        self.assertItemsEqual(gtags_files, required_files)
         self.assertTrue(all(
             os.path.getsize(os.path.join(self.main_source_folder, filename))
             for filename in required_files))
 
+    def test_version(self):
+        tags = self.buildGtags()
+        self.assertIsInstance(tags.version(), GnuGlobalVersion)
+
     def test_get_by_prefix(self):
-        tags = self.build_gtags()
+        tags = self.buildGtags()
         self.assertEquals(len(tags.start_with('')), 32)
         self.assertEquals(len(tags.start_with('LSQ')), 26)
         self.assertEquals(len(tags.start_with('foobar')), 0)
 
     def test_empty_match(self):
-        tags = self.build_gtags()
+        tags = self.buildGtags()
         self.assertEquals(len(tags.match('whatever')), 0)
 
     def test_match(self):
-        tags = self.build_gtags()
+        tags = self.buildGtags()
         matches = tags.match('LSQ_HandleT')
         self.assertEquals(len(matches), 1)
         handle = matches[0]
@@ -194,9 +222,9 @@ class GtagsTestCase(unittest.TestCase):
             path=os.path.join(self.main_source_folder, 'linear_sequence.h'))
 
     def test_references(self):
-        tags = self.build_gtags()
+        tags = self.buildGtags()
         matches = tags.match('LSQ_IteratorT', reference=True)
-        self.assertEquals(len(matches), 6)
+        self.assertEquals(len(matches), 28)
         self.assertSymbol(matches[0],
             signature=('LSQ_IteratorT LSQ_GetElementByIndex' +
                 '(LSQ_HandleT handle, LSQ_IntegerIndexT index) {'),
@@ -205,7 +233,9 @@ class GtagsTestCase(unittest.TestCase):
 
 if __name__ == '__main__':
     tests = [
+        'test_version_comparison',
         'test_build',
+        'test_version',
         'test_get_by_prefix',
         'test_empty_match',
         'test_match',
