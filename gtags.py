@@ -13,6 +13,12 @@ import unittest
 
 PP = pprint.PrettyPrinter(indent=4)
 
+GLOBAL_VERSION_RE = re.compile(r'^global - GNU GLOBAL (?P<version>[\d\.]+)$')
+
+# See http://lists.gnu.org/archive/html/info-global/2010-06/msg00000.html
+# for details.
+GLOBAL_GSYMS_REMOVAL_VERSION = 5.9
+
 TAGS_RE = re.compile(
     '(?P<symbol>[^\s]+)\s+'
     '(?P<linenum>[^\s]+)\s+'
@@ -106,6 +112,17 @@ class TagFile(object):
             print stderr
         return success
 
+    def version(self, asfloat=False):
+        version_string = self.subprocess.stdout('global --version').splitlines()[0]
+        match = GLOBAL_VERSION_RE.match(version_string)
+        if match:
+            version = match.groupdict()['version']
+            if asfloat:
+                # two first digits
+                return float('.'.join(version.split('.')[:2]))
+            return version
+        return None
+
 
 class GtagsTestCase(unittest.TestCase):
     def __init__(self, method_name):
@@ -142,12 +159,17 @@ class GtagsTestCase(unittest.TestCase):
         return tags
 
     def test_build(self):
-        required_files = ['GPATH', 'GRTAGS', 'GSYMS', 'GTAGS']
         source_files = os.listdir(self.main_source_folder)
-        self.build_gtags()
+
+        tags = self.build_gtags()
+        required_files = ['GPATH', 'GRTAGS', 'GSYMS', 'GTAGS']
+        if tags.version(asfloat=True) >= GLOBAL_GSYMS_REMOVAL_VERSION:
+            required_files.remove('GSYMS')
+
         all_files = os.listdir(self.main_source_folder)
         gtags_files = set(all_files) - set(source_files)
-        self.assertEquals(sorted(gtags_files), required_files)
+
+        self.assertEquals(sorted(gtags_files), sorted(required_files))
         self.assertTrue(all(
             os.path.getsize(os.path.join(self.main_source_folder, filename))
             for filename in required_files))
