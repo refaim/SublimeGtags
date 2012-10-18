@@ -163,7 +163,7 @@ class GtagsTestCase(unittest.TestCase):
             shutil.rmtree(self.test_folder, ignore_errors=True)
 
     def assertSymbol(self, symbol, signature, line, path):
-        self.assertEquals(symbol['signature'], signature)
+        self.assertEquals(symbol['signature'].rstrip(), signature.rstrip())
         self.assertEquals(int(symbol['linenum']), line)
         self.assertEquals(os.path.realpath(symbol['path']),
             os.path.realpath(path))
@@ -225,10 +225,9 @@ class GtagsTestCase(unittest.TestCase):
         matches = tags.match('LSQ_IteratorT', reference=True)
         self.assertEquals(len(matches), 28)
         self.assertSymbol(matches[0],
-            signature=('LSQ_IteratorT LSQ_GetElementByIndex' +
-                '(LSQ_HandleT handle, LSQ_IntegerIndexT index) {'),
+            signature='int LSQ_IsIteratorDereferencable(LSQ_IteratorT iterator) {',
             path=os.path.join(self.main_source_folder, 'doubly_linked_list.c'),
-            line=75)
+            line=56)
 
 if __name__ == '__main__':
     tests = [
