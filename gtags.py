@@ -77,6 +77,13 @@ def expand_path(path):
     return path
 
 
+def is_paths_equal(a, b):
+    normalize = lambda path: os.path.normcase(os.path.normpath(os.path.realpath(path)))
+    if is_windows():
+        a, b = map(convert_from_83, (a, b))
+    return normalize(a) == normalize(b)
+
+
 class GnuGlobalVersion(object):
     def __init__(self, version_string):
         self.numbers = [int(number) for number in version_string.split('.')]
@@ -211,8 +218,7 @@ class GtagsTestCase(unittest.TestCase):
     def assertSymbol(self, symbol, signature, line, path):
         self.assertEquals(symbol['context'].rstrip(), signature.rstrip())
         self.assertEquals(int(symbol['linenum']), line)
-        self.assertEquals(os.path.realpath(symbol['path']),
-            os.path.realpath(path))
+        self.assertTrue(is_paths_equal(symbol['path'], path))
 
     def assertVersion(self, op, v1, v2):
         self.assertTrue(op(GnuGlobalVersion(v1), GnuGlobalVersion(v2)))
