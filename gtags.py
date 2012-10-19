@@ -207,7 +207,7 @@ class GtagsTestCase(unittest.TestCase):
             shutil.rmtree(self.test_folder, ignore_errors=True)
 
     def assertSymbol(self, symbol, signature, line, path):
-        self.assertEquals(symbol['signature'].rstrip(), signature.rstrip())
+        self.assertEquals(symbol['context'].rstrip(), signature.rstrip())
         self.assertEquals(int(symbol['linenum']), line)
         self.assertEquals(os.path.realpath(symbol['path']),
             os.path.realpath(path))
