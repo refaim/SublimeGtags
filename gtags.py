@@ -17,6 +17,10 @@ PP = pprint.PrettyPrinter(indent=4)
 
 GLOBAL_VERSION_RE = re.compile(r'^global - GNU GLOBAL (?P<version>[\d\.]+)$')
 
+# See http://lists.gnu.org/archive/html/info-global/2010-03/msg00001.html
+# for details
+GLOBAL_NEW_PARSER_ARRIVAL_VERSION = '5.8.2'
+
 # See http://lists.gnu.org/archive/html/info-global/2010-06/msg00000.html
 # for details.
 GLOBAL_GSYMS_REMOVAL_VERSION = '5.9'
@@ -275,11 +279,19 @@ class GtagsTestCase(unittest.TestCase):
     def test_references(self):
         tags = self.buildGtags()
         matches = tags.match('LSQ_IteratorT', reference=True)
-        self.assertEquals(len(matches), 28)
+        if tags.version() >= GLOBAL_NEW_PARSER_ARRIVAL_VERSION:
+            refcount = 28
+            line = 56
+            signature = 'int LSQ_IsIteratorDereferencable(LSQ_IteratorT iterator) {'
+        else:
+            refcount = 6
+            line = 75
+            signature = 'LSQ_IteratorT LSQ_GetElementByIndex(LSQ_HandleT handle, LSQ_IntegerIndexT index) {'
+        self.assertEquals(len(matches), refcount)
         self.assertSymbol(matches[0],
-            signature='int LSQ_IsIteratorDereferencable(LSQ_IteratorT iterator) {',
+            signature=signature,
             path=os.path.join(self.main_source_folder, 'doubly_linked_list.c'),
-            line=56)
+            line=line)
 
 if __name__ == '__main__':
     tests = [
