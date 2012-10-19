@@ -49,6 +49,18 @@ if is_windows():
                 ctypes.FormatError(ctypes.GetLastError()))
             return None
 
+    def convert_to_83(path):
+        path = convert_path(path, ctypes.windll.kernel32.GetShortPathNameW)
+        # And finally encode for CMD.
+        return path.encode(locale.getpreferredencoding())
+
+    def convert_from_83(path):
+        # Convert from CMD encoding.
+        path = path.decode(locale.getpreferredencoding())
+        # Restore original unicode path.
+        return convert_path(path,
+            ctypes.windll.kernel32.GetLongPathNameW)
+
 
 def expand_path(path):
     path = os.path.expandvars(os.path.expanduser(path))
@@ -59,11 +71,8 @@ def expand_path(path):
         # See http://bugs.python.org/issue1759845 for details.
 
         # So, if we aiming for an universal solution,
-        # we need to get ANSI 8.3 version of the path.
-        path = convert_path(path, ctypes.windll.kernel32.GetShortPathNameW)
-
-        # And finally encode for CMD.
-        path = path.encode(locale.getpreferredencoding())
+        # we need to get ANSI 8.3 version of the path and encode it for CMD.
+        path = convert_to_83(path)
 
     return path
 
@@ -156,14 +165,7 @@ class TagFile(object):
                 result.append(match.groupdict())
             else:
                 data = match.groupdict()
-
-                # Convert from CMD encoding.
-                path = data['path'].decode(locale.getpreferredencoding())
-
-                # Restore original unicode path.
-                data['path'] = convert_path(path,
-                    ctypes.windll.kernel32.GetLongPathNameW)
-
+                data['path'] = convert_from_83(data['path'])
                 result.append(data)
 
         return result
