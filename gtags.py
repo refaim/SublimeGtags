@@ -244,14 +244,14 @@ class GtagsTestCase(unittest.TestCase):
         all_files = os.listdir(self.main_source_folder)
         gtags_files = set(all_files) - set(source_files)
 
-        self.assertItemsEqual(gtags_files, required_files)
+        self.assertEqual(sorted(gtags_files), sorted(required_files))
         self.assertTrue(all(
             os.path.getsize(os.path.join(self.main_source_folder, filename))
             for filename in required_files))
 
     def test_version(self):
         tags = self.buildGtags()
-        self.assertIsInstance(tags.version(), GnuGlobalVersion)
+        self.assertTrue(isinstance(tags.version(), GnuGlobalVersion))
 
     def test_get_by_prefix(self):
         tags = self.buildGtags()
