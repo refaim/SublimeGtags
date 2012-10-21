@@ -170,12 +170,10 @@ class TagFile(object):
         result = []
 
         for match in TAGS_RE.finditer(output):
-            if not is_windows():
-                result.append(match.groupdict())
-            else:
-                data = match.groupdict()
+            data = match.groupdict()
+            if is_windows():
                 data['path'] = convert_from_83(data['path'])
-                result.append(data)
+            result.append(data)
 
         return result
 
