@@ -2,15 +2,11 @@
 
 import os
 import threading
-from os.path import join, normpath, dirname
 
 import sublime
 import sublime_plugin
-from sublime import status_message
 
-# Gtags
 import gtags
-from gtags import (TagFile, PP, find_tags_root)
 
 settings = sublime.load_settings('GTags.sublime-settings')
 
@@ -27,14 +23,14 @@ def run_on_cwd(dir=None):
             return
 
         if dir is None:
-            tags_root = find_tags_root(dirname(filename))
+            tags_root = gtags.find_tags_root(os.path.dirname(filename))
             if tags_root is None:
                 sublime.error_message("GTAGS not found. build tags by 'gtags'")
                 return
         else:
             tags_root = dir[0]
 
-        tags = TagFile(tags_root, settings.get('extra_tag_paths'))
+        tags = gtags.TagFile(tags_root, settings.get('extra_tag_paths'))
         func(view, tags, tags_root)
 
     return wrapper

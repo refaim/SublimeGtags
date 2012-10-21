@@ -5,7 +5,6 @@ import itertools
 import operator
 import os
 import platform
-import pprint
 import re
 import shlex
 import shutil
@@ -13,7 +12,6 @@ import subprocess
 import tempfile
 import unittest
 
-PP = pprint.PrettyPrinter(indent=4)
 
 GLOBAL_VERSION_RE = re.compile(r'^global - GNU GLOBAL (?P<version>[\d\.]+)$')
 
