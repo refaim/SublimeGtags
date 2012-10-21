@@ -8,7 +8,12 @@ import sublime_plugin
 
 import gtags
 
-settings = sublime.load_settings('GTags.sublime-settings')
+
+SETTINGS_PATH = 'GTags.sublime-settings'
+
+
+def load_settings():
+    return sublime.load_settings(SETTINGS_PATH)
 
 
 def run_on_cwd(dir=None):
@@ -30,7 +35,7 @@ def run_on_cwd(dir=None):
         else:
             tags_root = dir[0]
 
-        tags = gtags.TagFile(tags_root, settings.get('extra_tag_paths'))
+        tags = gtags.TagFile(tags_root, load_settings().get('extra_tag_paths'))
         func(view, tags, tags_root)
 
     return wrapper
@@ -118,7 +123,7 @@ def gtags_jump_keyword(view, keywords, root, showpanel=False):
             jump(keywords[index])
 
     if showpanel or len(keywords) > 1:
-        if settings.get('show_relative_paths'):
+        if load_settings().get('show_relative_paths'):
             convert_path = lambda path: os.path.relpath(path, root)
         else:
             convert_path = os.path.normpath
