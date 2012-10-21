@@ -16,6 +16,10 @@ def load_settings():
     return sublime.load_settings(SETTINGS_PATH)
 
 
+def create_tags(root):
+    return gtags.TagFile(root, load_settings().get('extra_tag_paths'))
+
+
 def run_on_cwd(dir=None):
     window = sublime.active_window()
 
@@ -28,15 +32,13 @@ def run_on_cwd(dir=None):
             return
 
         if dir is None:
-            tags_root = gtags.find_tags_root(os.path.dirname(filename))
+            tags_root = gtags.find_tags_root(filename)
             if tags_root is None:
                 sublime.error_message("GTAGS not found. build tags by 'gtags'")
                 return
         else:
             tags_root = dir[0]
-
-        tags = gtags.TagFile(tags_root, load_settings().get('extra_tag_paths'))
-        func(view, tags, tags_root)
+        func(view, create_tags(tags_root), tags_root)
 
     return wrapper
 
@@ -221,3 +223,31 @@ class GtagsRebuildTags(sublime_plugin.TextCommand):
                 'Rebuilding tags on %s' % root,
                 'Tags rebuilt successfully on %s' % root,
                 'Error while tags rebuilding, see console for details')
+
+
+class AutoUpdateThread(threading.Thread):
+    def __init__(self, tags, file_name):
+        threading.Thread.__init__(self)
+        self.tags = tags
+        self.file_name = file_name
+
+    def run(self):
+        self.success = self.tags.update_file(self.file_name)
+
+
+class GtagsAutoUpdate(sublime_plugin.EventListener):
+    def on_post_save(self, view):
+        if not load_settings().get('update_on_save'):
+            return
+        file_name = view.file_name()
+        tags_root = gtags.find_tags_root(file_name)
+        if tags_root is not None:
+            tags = create_tags(tags_root)
+            if not tags.is_single_update_supported():
+                return
+            thread = AutoUpdateThread(tags, file_name)
+            thread.start()
+            ThreadProgress(thread,
+                'Updating tags for %s' % file_name,
+                'Tags updated successfully for %s' % file_name,
+                'Error while tags updating, see console for details')

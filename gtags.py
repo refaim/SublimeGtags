@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import itertools
+import marshal
 import operator
 import os
 import platform
@@ -14,6 +15,10 @@ import unittest
 
 
 GLOBAL_VERSION_RE = re.compile(r'^global - GNU GLOBAL (?P<version>[\d\.]+)$')
+
+# See http://lists.gnu.org/archive/html/info-global/2009-10/msg00000.html
+# for details
+GLOBAL_SINGLE_UPDATE_ARRIVAL_VERSION = '5.7.6'
 
 # See http://lists.gnu.org/archive/html/info-global/2010-03/msg00001.html
 # for details
@@ -86,6 +91,10 @@ def is_paths_equal(a, b):
     return normalize(a) == normalize(b)
 
 
+def use_forward_slashes(path):
+    return path.replace('\\\\', '/').replace('\\', '/')
+
+
 class GnuGlobalVersion(object):
     def __init__(self, version_string):
         self.numbers = [int(number) for number in version_string.split('.')]
@@ -107,7 +116,7 @@ class GnuGlobalVersion(object):
 def find_tags_root(current, previous=None):
     current = os.path.normpath(current)
     if not os.path.isdir(current):
-        return None
+        return find_tags_root(os.path.dirname(current))
 
     parent = os.path.dirname(current)
     if parent == previous:
@@ -183,6 +192,17 @@ class TagFile(object):
 
     def rebuild(self):
         return self.subprocess.status('gtags -v', cwd=self.root)
+
+    def update_file(self, path):
+        if not self.is_single_update_supported():
+            return False
+        if is_windows():
+            path = use_forward_slashes(path)
+        return self.subprocess.status('gtags --single-update %s' % path,
+            cwd=self.root)
+
+    def is_single_update_supported(self):
+        return self.version() >= GLOBAL_SINGLE_UPDATE_ARRIVAL_VERSION
 
     def version(self):
         version_string = self.subprocess.stdout('global --version').splitlines()[0]
@@ -289,6 +309,19 @@ class GtagsTestCase(unittest.TestCase):
             path=os.path.join(self.main_source_folder, 'doubly_linked_list.c'),
             line=line)
 
+    def test_single_update(self):
+        tags = self.buildGtags()
+        symbol_name = 'LSQ_IteratorT'
+        old_matches = tags.match(symbol_name, reference=True)
+        file_name = os.path.join(old_matches[0]['path'])
+        open(file_name, 'a').write(symbol_name)
+        tags.update_file(file_name)
+        new_matches = tags.match(symbol_name, reference=True)
+        serialize = lambda matches: set(marshal.dumps(match) for match in matches)
+        difference = serialize(new_matches) - serialize(old_matches)
+        self.assertEquals(len(difference), 1)
+        self.assertTrue(list(difference)[0] not in old_matches)
+
 if __name__ == '__main__':
     tests = [
         'test_version_comparison',
@@ -298,6 +331,7 @@ if __name__ == '__main__':
         'test_empty_match',
         'test_match',
         'test_references',
+        'test_single_update'
     ]
     suite = unittest.TestSuite(map(GtagsTestCase, tests))
     unittest.TextTestRunner(verbosity=2).run(suite)

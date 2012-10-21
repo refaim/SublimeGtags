@@ -1,7 +1,11 @@
 {
-    // show relative paths in keyword jump selection panel
+    // Show relative paths in keyword jump selection panel.
     "show_relative_paths": true,
 
-    // a list of other locations to look up (GTAGSLIBPATH)
-    "extra_tag_paths": []
+    // A list of other locations to look up (GTAGSLIBPATH).
+    "extra_tag_paths": [],
+
+    // Update tags file after each save operation.
+    // May be slow on GNU GLOBAL prior to 6.2.3 in the case of adding new file.
+    "update_on_save": true
 }
