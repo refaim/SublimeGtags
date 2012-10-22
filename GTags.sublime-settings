@@ -2,6 +2,9 @@
     // Show relative paths in keyword jump selection panel.
     "show_relative_paths": true,
 
+    // Show keyword jump selection panel in the case of a single match found.
+    "show_panel_for_single_match": false,
+
     // A list of other locations to look up (GTAGSLIBPATH).
     "extra_tag_paths": [],
 

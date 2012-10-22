@@ -180,7 +180,8 @@ class GtagsSearchCommand(sublime_plugin.TextCommand):
             symbol = selected_symbol(view)
             matches = self.match(tags, symbol)
             if matches:
-                gtags_jump_keyword(view, matches, root)
+                gtags_jump_keyword(view, matches, root,
+                    showpanel=load_settings().get('show_panel_for_single_match'))
             else:
                 sublime.status_message(self.not_found() % symbol)
 
