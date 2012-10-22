@@ -147,7 +147,7 @@ class ShowSymbolsThread(threading.Thread):
         self.root = root
 
     def run(self):
-        symbols = self.tags.start_with('')
+        symbols = self.tags.by_prefix('')
         self.success = len(symbols) > 0
         if not self.success:
             return

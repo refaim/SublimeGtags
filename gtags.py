@@ -171,7 +171,7 @@ class TagFile(object):
         self.root = root
         self.subprocess = TagSubprocess(root, extra_paths)
 
-    def start_with(self, prefix):
+    def by_prefix(self, prefix):
         return self.subprocess.stdout('global -c %s' % prefix).splitlines()
 
     def _match(self, pattern, options):
@@ -275,9 +275,9 @@ class GtagsTestCase(unittest.TestCase):
 
     def test_get_by_prefix(self):
         tags = self.buildGtags()
-        self.assertEquals(len(tags.start_with('')), 32)
-        self.assertEquals(len(tags.start_with('LSQ')), 26)
-        self.assertEquals(len(tags.start_with('foobar')), 0)
+        self.assertEquals(len(tags.by_prefix('')), 32)
+        self.assertEquals(len(tags.by_prefix('LSQ')), 26)
+        self.assertEquals(len(tags.by_prefix('foobar')), 0)
 
     def test_empty_match(self):
         tags = self.buildGtags()
