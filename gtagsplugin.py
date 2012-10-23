@@ -213,7 +213,7 @@ class TagsRebuildThread(threading.Thread):
 
 class GtagsRebuildTags(sublime_plugin.TextCommand):
     def run(self, edit, **kwargs):
-        # set root folder if run from sidebar context menu
+        # Set root folder if used from sidebar context menu.
         root = kwargs.get('dirs')
 
         @run_on_cwd(dir=root)

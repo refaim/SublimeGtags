@@ -19,28 +19,19 @@ if is_windows():
         if method(src, dst, ctypes.sizeof(dst)) != 0:
             return dst.value
         else:
-            print 'Cannot convert path: "%s"' % (
-                ctypes.FormatError(ctypes.GetLastError()))
-            return None
+            print 'Cannot convert path %s: "%s"' % (
+                path, ctypes.FormatError(ctypes.GetLastError()))
+            return path
 
     def convert_to_83(path):
-        path = convert_path(path, ctypes.windll.kernel32.GetShortPathNameW)
-        # And finally encode for CMD.
-        return path.encode(locale.getpreferredencoding())
+        return convert_path(path, ctypes.windll.kernel32.GetShortPathNameW)
 
     def convert_from_83(path):
-        # Convert from CMD encoding.
-        path = path.decode(locale.getpreferredencoding())
-        # Restore original unicode path.
         return convert_path(path,
             ctypes.windll.kernel32.GetLongPathNameW)
 
 
-def use_forward_slashes(path):
-    return path.replace('\\\\', '/').replace('\\', '/')
-
-
-def expand_path(path):
+def prepare_path_for_env(path):
     path = os.path.expandvars(os.path.expanduser(path))
 
     if is_windows():
@@ -50,14 +41,30 @@ def expand_path(path):
 
         # So, if we aiming for an universal solution,
         # we need to get ANSI 8.3 version of the path and encode it for CMD.
-        path = convert_to_83(path)
+        return convert_to_83(path).encode(locale.getpreferredencoding())
 
     return path
 
 
+def use_forward_slashes(path):
+    return path.replace('\\\\', '/').replace('\\', '/')
+
+
+def universal_normalize(path):
+    functions = (
+        os.path.realpath,
+        os.path.expanduser,
+        os.path.expandvars,
+        os.path.normpath,
+        os.path.normcase,
+        use_forward_slashes,
+    )
+    for func in functions:
+        path = func(path)
+    return path
+
+
 def is_paths_equal(a, b):
-    op = os.path
-    normalize = lambda path: op.normcase(op.normpath(op.realpath(path)))
     if is_windows():
         a, b = map(convert_from_83, (a, b))
-    return normalize(a) == normalize(b)
+    return universal_normalize(a) == universal_normalize(b)

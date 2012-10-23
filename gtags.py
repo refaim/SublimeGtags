@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import itertools
+import locale
 import os
 import re
 import shlex
@@ -68,9 +69,9 @@ class TagSubprocess(object):
     def __init__(self, root, extra_paths):
         environ = {
             'PATH': os.environ['PATH'],
-            'GTAGSROOT': expand_path(root),
-            'GTAGSLIBPATH':
-                os.pathsep.join(expand_path(path) for path in extra_paths),
+            'GTAGSROOT': prepare_path_for_env(root),
+            'GTAGSLIBPATH': os.pathsep.join(
+                prepare_path_for_env(path) for path in extra_paths),
         }
         self.default_kwargs = {'env': environ}
         if is_windows():
@@ -124,7 +125,10 @@ class TagFile(object):
         for match in TAGS_RE.finditer(output):
             data = match.groupdict()
             if is_windows():
-                data['path'] = convert_from_83(data['path'])
+                # Convert from CMD encoding.
+                path = data['path'].decode(locale.getpreferredencoding())
+                # Restore original unicode path.
+                data['path'] = convert_from_83(path)
             result.append(data)
 
         return result
