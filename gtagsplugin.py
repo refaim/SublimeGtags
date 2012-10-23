@@ -245,6 +245,10 @@ class GtagsAutoUpdate(sublime_plugin.EventListener):
         if tags_root is not None:
             tags = create_tags(tags_root)
             if not tags.is_single_update_supported():
+                print ('Incremental single file update is not supported' + ' ' +
+                       'until GNU GLOBAL v%s. You have GNU GLOBAL v%s.') % (
+                    gtags.GLOBAL_SINGLE_UPDATE_ARRIVAL_VERSION,
+                    tags.version())
                 return
             thread = AutoUpdateThread(tags, file_name)
             thread.start()

@@ -35,6 +35,7 @@ TAGS_RE = re.compile(
 class GlobalVersion(object):
     def __init__(self, version_string):
         self.numbers = [int(number) for number in version_string.split('.')]
+        self.string = version_string
 
     def __cmp__(self, other):
         if isinstance(other, basestring):
@@ -48,6 +49,9 @@ class GlobalVersion(object):
             if a > b:
                 return 1
         return 0
+
+    def __str__(self):
+        return self.string
 
 
 def find_tags_root(current, previous=None):
