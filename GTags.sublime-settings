@@ -10,5 +10,9 @@
 
     // Update tags file after each save operation.
     // May be slow on GNU GLOBAL prior to 6.2.3 in the case of adding new file.
-    "update_on_save": true
+    "update_on_save": true,
+
+    // Keep latest search results in memory
+    // for faster display in the case of the same request.
+    "cache_search_results": true
 }

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import functools
 import os
 import threading
 
@@ -7,6 +8,7 @@ import sublime
 import sublime_plugin
 
 import gtags
+from utils import *
 
 
 SETTINGS_PATH = 'GTags.sublime-settings'
@@ -14,6 +16,12 @@ SETTINGS_PATH = 'GTags.sublime-settings'
 
 def load_settings():
     return sublime.load_settings(SETTINGS_PATH)
+
+
+def main_thread(callback, *args, **kwargs):
+    # sublime.set_timeout gets used to send things onto the main thread
+    # most sublime.[something] calls need to be on the main thread
+    sublime.set_timeout(functools.partial(callback, *args, **kwargs), 0)
 
 
 def create_tags(root):
@@ -75,6 +83,28 @@ class ThreadProgress(object):
             self.addend = -1
         i += self.addend
         sublime.set_timeout(lambda: self.run(i), 100)
+
+
+class GtagsDispatcher(object):
+    instance = None
+
+    def __init__(self):
+        self.cache = {}
+
+    def store_in_cache(self, root, symbols):
+        self.cache[universal_normalize(root)] = symbols
+
+    def load_from_cache(self, root):
+        return self.cache.get(universal_normalize(root), None)
+
+    def clear_cache_entry(self, root):
+        self.store_in_cache(root, None)
+
+
+def dispatcher():
+    if GtagsDispatcher.instance is None:
+        GtagsDispatcher.instance = GtagsDispatcher()
+    return GtagsDispatcher.instance
 
 
 class JumpHistory(object):
@@ -140,14 +170,21 @@ def gtags_jump_keyword(view, keywords, root, showpanel=False):
 
 
 class ShowSymbolsThread(threading.Thread):
-    def __init__(self, view, tags, root):
+    def __init__(self, view, tags, root, is_caching_allowed):
         threading.Thread.__init__(self)
         self.view = view
         self.tags = tags
         self.root = root
+        self.is_caching_allowed = is_caching_allowed
 
     def run(self):
-        symbols = self.tags.by_prefix('')
+        symbols = None
+        if self.is_caching_allowed:
+            symbols = dispatcher().load_from_cache(self.root)
+        if symbols is None:
+            symbols = self.tags.by_prefix('')
+        if self.is_caching_allowed:
+            dispatcher().store_in_cache(self.root, symbols)
         self.success = len(symbols) > 0
         if not self.success:
             return
@@ -165,7 +202,8 @@ class GtagsShowSymbols(sublime_plugin.TextCommand):
     def run(self, edit):
         @run_on_cwd()
         def and_then(view, tags, root):
-            thread = ShowSymbolsThread(view, tags, root)
+            thread = ShowSymbolsThread(view, tags, root,
+                load_settings().get('cache_search_results'))
             thread.start()
             ThreadProgress(thread,
                 'Getting symbols on %s' % root,
@@ -234,6 +272,11 @@ class AutoUpdateThread(threading.Thread):
 
     def run(self):
         self.success = self.tags.update_file(self.file_name)
+
+        def clear_cache(tags_root):
+            dispatcher().clear_cache_entry(tags_root)
+
+        main_thread(clear_cache, self.tags.root)
 
 
 class GtagsAutoUpdate(sublime_plugin.EventListener):
