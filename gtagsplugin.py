@@ -123,7 +123,10 @@ class JumpHistory(object):
     def append(self, view):
         filename = view.file_name()
         row, col = view.rowcol(view.sel()[0].begin())
-        self._storage.append('%s:%d:%d' % (filename, row + 1, col + 1))
+        encoded = '%s:%d:%d' % (filename, row + 1, col + 1)
+        if self._storage and self._storage[-1] == encoded:
+            return
+        self._storage.append(encoded)
 
     def jump_back(self):
         if self.empty():
