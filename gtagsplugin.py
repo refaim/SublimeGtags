@@ -46,7 +46,7 @@ def run_on_cwd(dir=None):
                 return
         else:
             tags_root = dir[0]
-        func(view, create_tags(tags_root), tags_root)
+        func(view, create_tags(tags_root))
 
     return wrapper
 
@@ -209,12 +209,12 @@ class ShowSymbolsThread(threading.Thread):
 class GtagsShowSymbols(sublime_plugin.TextCommand):
     def run(self, edit):
         @run_on_cwd()
-        def and_then(view, tags, root):
-            thread = ShowSymbolsThread(view, tags, root,
+        def and_then(view, tags):
+            thread = ShowSymbolsThread(view, tags, tags.root,
                 load_settings().get('cache_search_results'))
             thread.start()
             ThreadProgress(thread,
-                'Getting symbols on %s' % root,
+                'Getting symbols on %s' % tags.root,
                 'Symbols have successfully obtained',
                 'No symbols found')
 
@@ -222,11 +222,11 @@ class GtagsShowSymbols(sublime_plugin.TextCommand):
 class GtagsSearchCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         @run_on_cwd()
-        def and_then(view, tags, root):
+        def and_then(view, tags):
             symbol = selected_symbol(view)
             matches = self.match(tags, symbol)
             if matches:
-                gtags_jump_keyword(view, matches, root,
+                gtags_jump_keyword(view, matches, tags.root,
                     showpanel=load_settings().get('show_panel_for_single_match'))
             else:
                 sublime.status_message(self.not_found() % symbol)
@@ -263,12 +263,12 @@ class GtagsRebuildTags(sublime_plugin.TextCommand):
         root = kwargs.get('dirs')
 
         @run_on_cwd(dir=root)
-        def and_then(view, tags, root):
+        def and_then(view, tags):
             thread = TagsRebuildThread(tags)
             thread.start()
             ThreadProgress(thread,
-                'Rebuilding tags on %s' % root,
-                'Tags rebuilt successfully on %s' % root,
+                'Rebuilding tags on %s' % tags.root,
+                'Tags rebuilt successfully on %s' % tags.root,
                 'Error while tags rebuilding, see console for details')
 
 
