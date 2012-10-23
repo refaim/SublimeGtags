@@ -90,6 +90,13 @@ class GtagsDispatcher(object):
 
     def __init__(self):
         self.cache = {}
+        self.jumps = {}
+
+    def jump_history(self, root):
+        root = universal_normalize(root)
+        if root not in self.jumps:
+            self.jumps[root] = JumpHistory()
+        return self.jumps[root]
 
     def store_in_cache(self, root, symbols):
         self.cache[universal_normalize(root)] = symbols
@@ -132,20 +139,18 @@ class JumpHistory(object):
         return len(self._storage) == 0
 
 
-def jump_history():
-    if JumpHistory.instance is None:
-        JumpHistory.instance = JumpHistory()
-    return JumpHistory.instance
-
-
 class GtagsJumpBack(sublime_plugin.WindowCommand):
     def run(self):
-        jump_history().jump_back()
+        file_name = sublime.active_window().active_view().file_name()
+        if file_name:
+            tags_root = gtags.find_tags_root(file_name)
+            if tags_root is not None:
+                dispatcher().jump_history(tags_root).jump_back()
 
 
 def gtags_jump_keyword(view, keywords, root, showpanel=False):
     def jump(keyword):
-        jump_history().append(view)
+        dispatcher().jump_history(root).append(view)
         position = '%s:%d:0' % (
             os.path.normpath(keyword['path']), int(keyword['linenum']))
         view.window().open_file(position, sublime.ENCODED_POSITION)
