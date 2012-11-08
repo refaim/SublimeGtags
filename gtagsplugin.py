@@ -292,6 +292,8 @@ class GtagsAutoUpdate(sublime_plugin.EventListener):
         if not load_settings().get('update_on_save'):
             return
         file_name = view.file_name()
+        if not os.access(file_name, os.W_OK):
+            return
         tags_root = gtags.find_tags_root(file_name)
         if tags_root is not None:
             tags = create_tags(tags_root)
